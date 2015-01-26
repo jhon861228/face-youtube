@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
+	<script type="text/javascript" src="js/vendor/headtrackr.js"></script>
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	<script type="text/javascript" src="js/materialize.min.js"></script>
+	<style>
+
+	</style>
+</head>
+<body>
+	<div class="row-fluid">
+		<div class="col s12 m12">
+			<div class="navbar-fixed">
+				<nav>
+					<div class="nav-wrapper">
+						<div class="col s12">
+							<a href="#!" style="margin-top: -15px;" class="brand-logo"><span class="mdi-av-videocam" style="font-size: 2em"></span></a>
+							<h4 align="center">Reproductor de video - Reconocimiento facial</h4>
+						</div>
+					</div>
+				</nav>
+			</div>
+		</div>
+	</div>
+	<div class="row" style="margin-top: 10px;">
+		<div class="col s3 m3">
+			<canvas id="compare" width="320" height="240" style="display:none"></canvas>
+			<video id="vid" autoplay="" loop="" width="320" height="240" src="blob:http%3A//auduno.github.io/8ed870f6-d2a8-443d-8780-5dee33187b6c"></video>
+			<canvas id="overlay" width="320" height="240" style="position: absolute; top: 0px; z-index: 100001; display: block;"></canvas>
+			<canvas id="debug" width="320" height="240" style="position: absolute; top: 0px; z-index: 100002; display: none;"></canvas>
+
+			<p id="gUMMessage"></p>
+			<p>Estado : <span id="headtrackerMessage">Tracking face</span></p>
+			<p>
+				<a class="btn waves-effect" onclick="htracker.stop();htracker.start();">Reinicializar reconocimiento</a>
+				<a class="btn waves-effect" onclick="htracker.stop()">Parar reconocimiento</a>
+				<br><br>
+				<input type="checkbox" onclick="showProbabilityCanvas()" id="test5" />
+    			<label for="test5">Ver escala de grises</label>
+			</p>
+
+			</div>
+		<div class="col s9 m9">
+			<embed id="my-video" width="95%" height="500" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen allowscriptaccess="always" quality="high" bgcolor="#000000" name="my-video" style="" src="http://www.youtube.com/v/ehOSqiaYZY0?enablejsapi=1&version=3&playerapiid=ytplayer" type="application/x-shockwave-flash">
+		</div>	
+	</div>
+
+	<script>
+		//var estado_track = false;
+		
+		function playthevideo(){
+
+			var myPlayer = document.getElementById('my-video');
+			myPlayer.playVideo();
+
+		}
+		function stopthevideo(){
+
+			var myPlayer = document.getElementById('my-video');
+			myPlayer.stopVideo();
+
+		}
+
+		function pausethevideo(){
+			var myPlayer = document.getElementById('my-video'); 
+			myPlayer.pauseVideo();
+
+		}
+		//playthevideo();
+
+	</script>
+
+	<script>
+	//document.getElementById('ytplater').playVideo();
+	  // set up video and canvas elements needed
+	  var estado = false;
+	  var videoInput = document.getElementById('vid');
+	  var canvasInput = document.getElementById('compare');
+	  var canvasOverlay = document.getElementById('overlay')
+	  var debugOverlay = document.getElementById('debug');
+	  var overlayContext = canvasOverlay.getContext('2d');
+	  canvasOverlay.style.position = "absolute";
+	  canvasOverlay.style.top = document.getElementById('vid').offsetTop+'px';
+	  canvasOverlay.style.zIndex = '100001';
+	  canvasOverlay.style.display = 'block';
+	  debugOverlay.style.position = "absolute";
+	  debugOverlay.style.top = document.getElementById('vid').offsetTop+'px';
+	  debugOverlay.style.zIndex = '100002';
+	  debugOverlay.style.display = 'none';
+
+		// add some custom messaging
+		
+		statusMessages = {
+			"whitebalance" : "Revisa el balance de color blanco",
+			"detecting" : "Detectando rostro",
+			"hints" : "Hmm. La detección está tomando mucho tiempo",
+			"redetecting" : "Rostro perdido, redetectando",
+			"lost" : "Rostro perdido",
+			"found" : "Rostro detectado"
+		};
+		
+		supportMessages = {
+			"no getUserMedia" : "Unfortunately, <a href='http://dev.w3.org/2011/webrtc/editor/getusermedia.html'>getUserMedia</a> is not supported in your browser. Try <a href='http://www.opera.com/browser/'>downloading Opera 12</a> or <a href='http://caniuse.com/stream'>another browser that supports getUserMedia</a>. Now using fallback video for facedetection.",
+			"no camera" : "No camera found. Using fallback video for facedetection."
+		};
+		
+		document.addEventListener("headtrackrStatus", function(event) {
+			
+			if(event.status != "found"){
+				if(estado == true ){
+					stopthevideo();
+					toast(statusMessages[event.status],3000,'rounded');	
+					console.log("pailas no hay rostro :(");	
+				}
+				estado = false;
+				
+			}else{
+				estado = true;
+			}
+
+
+			if (event.status in supportMessages) {
+				var messagep = document.getElementById('gUMMessage');
+				messagep.innerHTML = supportMessages[event.status];
+				//toast(supportMessages[event.status],3000,'rounded');
+			} else if (event.status in statusMessages) {
+				var messagep = document.getElementById('headtrackerMessage');
+				messagep.innerHTML = statusMessages[event.status];
+				//toast(statusMessages[event.status],3000,'rounded');
+			}
+		}, true);
+		
+		// the face tracking setup
+		
+		var htracker = new headtrackr.Tracker({altVideo : {ogv : "./media/capture5.ogv", mp4 : "./media/capture5.mp4"}, calcAngles : true, ui : false, headPosition : false, debug : debugOverlay});
+		htracker.init(videoInput, canvasInput);
+		htracker.start();
+		
+		// for each facetracking event received draw rectangle around tracked face on canvas
+		
+		document.addEventListener("facetrackingEvent", function( event ) {
+			// clear canvas
+			overlayContext.clearRect(0,0,320,240);
+			// once we have stable tracking, draw rectangle
+			if (event.detection == "CS") {
+				overlayContext.translate(event.x, event.y)
+				overlayContext.rotate(event.angle-(Math.PI/2));
+				overlayContext.strokeStyle = "#00CC00";
+				overlayContext.strokeRect((-(event.width/2)) >> 0, (-(event.height/2)) >> 0, event.width, event.height);
+				overlayContext.rotate((Math.PI/2)-event.angle);
+				overlayContext.translate(-event.x, -event.y);
+			}
+		});
+		
+		// turn off or on the canvas showing probability
+		function showProbabilityCanvas() {
+			var debugCanvas = document.getElementById('debug');
+			if (debugCanvas.style.display == 'none') {
+				debugCanvas.style.display = 'block';
+			} else {
+				debugCanvas.style.display = 'none';
+			}
+		}
+	</script>
+
+
+</body>
+</html>
